@@ -2,10 +2,19 @@ import clickhouse_connect
 import pika
 import json
 from datetime import datetime
+from urllib.parse import urlparse
 
 # Configuración de RabbitMQ
-RABBITMQ_HOST = 'rabbitmq.railway.amqp://3DG5TI8cSct9mz84:1tbhh6v3kidlHODHaoAS1LArDBx.IuqS@junnet:46601'
+RABBITMQ_URL = 'amqp://3DG5TI8cSct9mz84:1tbhh6v3kidlHODHaoAS1LArDBx.IuqS@junction.proxy.rlwy.net:46601'
+# amqp://3DG5TI8cSct9mz84:1tbhh6v3kidlHODHaoAS1LArDBx.IuqS@rabbitmq.railway.internal:5672
 RABBITMQ_QUEUE = 'clickhouse_queue'
+
+# Extraer host, puerto y credenciales de la URL de RabbitMQ
+parsed_url = urlparse(RABBITMQ_URL)
+RABBITMQ_HOST = 'junction.proxy.rlwy.net'
+RABBITMQ_PORT = 46601
+RABBITMQ_USER = '3DG5TI8cSct9mz84'
+RABBITMQ_PASSWORD = '1tbhh6v3kidlHODHaoAS1LArDBx.IuqS'
 
 # Configuración de ClickHouse
 CLICKHOUSE_HOST = 'clickhouse-production-0732.up.railway.app'
@@ -110,8 +119,19 @@ def callback(ch, method, properties, body):
         print(f"Error al procesar el mensaje: {e}")
 
 # Conectar a RabbitMQ
-connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
-channel = connection.channel()
+try:
+    credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASSWORD)
+    connection_params = pika.ConnectionParameters(
+        host=RABBITMQ_HOST,
+        port=RABBITMQ_PORT,
+        credentials=credentials
+    )
+    connection = pika.BlockingConnection(connection_params)
+    channel = connection.channel()
+    print("Conexión exitosa a RabbitMQ!")
+except Exception as e:
+    print(f"Error al conectar a RabbitMQ: {e}")
+    exit(1)
 
 # Crear la cola en RabbitMQ (si no existe)
 channel.queue_declare(queue=RABBITMQ_QUEUE)
